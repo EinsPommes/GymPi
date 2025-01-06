@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, FileResponse
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -33,6 +34,9 @@ Base.metadata.create_all(bind=engine)
 # FastAPI App
 app = FastAPI(title="GymPi Cloud API")
 
+# Statische Dateien
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
@@ -49,6 +53,32 @@ def get_db():
         yield db
     finally:
         db.close()
+
+@app.get("/")
+async def root():
+    """
+    Hauptseite - Zeigt das Dashboard
+    """
+    return FileResponse("static/index.html")
+
+@app.get("/api/devices")
+async def get_devices(db: Session = Depends(get_db)):
+    """
+    Gibt eine Liste aller Geräte mit ihren Statistiken zurück
+    """
+    # Hole alle einzigartigen Geräte-IDs
+    devices = db.query(WorkoutData.device_id).distinct().all()
+    device_list = []
+    
+    for (device_id,) in devices:
+        # Hole Statistiken für jedes Gerät
+        stats = await get_workout_stats(device_id, db)
+        device_list.append({
+            "device_id": device_id,
+            "stats": stats
+        })
+    
+    return device_list
 
 @app.post("/workout/sync")
 async def sync_workout(data: dict, db: Session = Depends(get_db)):
