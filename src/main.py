@@ -48,6 +48,12 @@ def main():
             if not exercise:
                 break
                 
+            # Zeige Übungsvorschau für 3 Sekunden
+            if rep_count == 0 and workout_manager.current_set == 1:
+                display.show_exercise_preview(exercise['name'])
+                display.update()
+                time.sleep(3)
+            
             # Herzfrequenz messen
             heart_rate = heart_sensor.read_heart_rate()
             if heart_rate:

@@ -8,43 +8,100 @@ class EpaperDisplay:
         self.height = height
         self.image = Image.new('1', (width, height), 255)  # 255: white
         self.draw = ImageDraw.Draw(self.image)
+        
+        # Lade Schriftarten
         self.font_dir = os.path.join(os.path.dirname(__file__), '../../assets/fonts')
         self.font = ImageFont.load_default()  # Standardschriftart als Fallback
         self.small_font = ImageFont.load_default()
+        
+        # Pfad zu Übungsbildern
+        self.exercise_dir = os.path.join(os.path.dirname(__file__), '../../data/exercises')
         
     def clear(self):
         """Löscht den Display-Inhalt"""
         self.image = Image.new('1', (self.width, self.height), 255)
         self.draw = ImageDraw.Draw(self.image)
         
+    def _load_exercise_image(self, exercise_name):
+        """Lädt das Bild für eine bestimmte Übung"""
+        # Normalisiere den Dateinamen
+        filename = exercise_name.lower().replace(' ', '_') + '.bmp'
+        image_path = os.path.join(self.exercise_dir, filename)
+        
+        try:
+            if os.path.exists(image_path):
+                # Lade und konvertiere das Bild
+                img = Image.open(image_path)
+                # Konvertiere zu 1-bit Schwarz/Weiß
+                img = img.convert('1')
+                return img
+        except Exception as e:
+            print(f"Fehler beim Laden des Übungsbildes: {e}")
+        return None
+        
     def show_workout(self, exercise, sets, reps, current_set, heart_rate):
         """Zeigt die aktuelle Übung und Herzfrequenz an"""
         self.clear()
         
-        # Übungsname (groß, oben)
+        # Übungsname (oben)
         self.draw.text((10, 5), exercise, font=self.font, fill=0)
         
+        # Lade und zeige Übungsbild
+        exercise_image = self._load_exercise_image(exercise)
+        if exercise_image:
+            # Bild auf der linken Seite
+            image_width = 128  # Fixe Breite für Übungsbilder
+            image_height = 64  # Fixe Höhe für Übungsbilder
+            image_x = 10
+            image_y = 25
+            
+            # Füge das Bild ein
+            self.image.paste(exercise_image, (image_x, image_y))
+            
+            # Verschiebe die restlichen Elemente nach rechts
+            info_x = image_x + image_width + 10
+        else:
+            info_x = 10
+            
         # Sets und Wiederholungen
         progress = f"Set {current_set}/{sets}"
-        self.draw.text((10, 30), progress, font=self.font, fill=0)
+        self.draw.text((info_x, 30), progress, font=self.font, fill=0)
         
         # Wiederholungen
-        reps_text = f"Wiederholungen: {reps}"
-        self.draw.text((self.width//2 + 10, 30), reps_text, font=self.font, fill=0)
+        reps_text = f"{reps} Wdh."
+        self.draw.text((info_x, 50), reps_text, font=self.font, fill=0)
         
         # Fortschrittsbalken für Sets
-        progress_width = int((self.width - 20) * (current_set / sets))
-        self.draw.rectangle([(10, 50), (self.width-10, 60)], outline=0)
-        self.draw.rectangle([(10, 50), (10 + progress_width, 60)], fill=0)
+        bar_width = 100
+        progress_width = int(bar_width * (current_set / sets))
+        self.draw.rectangle([(info_x, 70), (info_x + bar_width, 80)], outline=0)
+        self.draw.rectangle([(info_x, 70), (info_x + progress_width, 80)], fill=0)
         
         # Herzfrequenz mit Symbol
         if heart_rate:
             hr_text = f"♥ {heart_rate} BPM"
-            self.draw.text((10, 70), hr_text, font=self.font, fill=0)
+            self.draw.text((info_x, 90), hr_text, font=self.font, fill=0)
             
         # Zeit
         current_time = datetime.now().strftime("%H:%M")
         self.draw.text((self.width-50, 5), current_time, font=self.small_font, fill=0)
+        
+    def show_exercise_preview(self, exercise_name):
+        """Zeigt eine Vorschau der Übung mit großem Bild"""
+        self.clear()
+        
+        # Übungsname oben
+        self.draw.text((10, 5), exercise_name, font=self.font, fill=0)
+        
+        # Lade und zeige Übungsbild
+        exercise_image = self._load_exercise_image(exercise_name)
+        if exercise_image:
+            # Zentriere das Bild
+            image_x = (self.width - exercise_image.width) // 2
+            image_y = (self.height - exercise_image.height) // 2
+            self.image.paste(exercise_image, (image_x, image_y))
+        else:
+            self.draw.text((10, self.height//2), "Kein Bild verfügbar", font=self.font, fill=0)
         
     def show_rest_timer(self, seconds_left):
         """Zeigt einen Ruhetimer an"""
@@ -52,8 +109,9 @@ class EpaperDisplay:
         
         # Großer Timer in der Mitte
         timer_text = f"{seconds_left}s"
-        self.draw.text((self.width//2-20, self.height//2-15), 
-                      timer_text, font=self.font, fill=0)
+        text_width = self.draw.textlength(timer_text, font=self.font)
+        x = (self.width - text_width) // 2
+        self.draw.text((x, self.height//2-15), timer_text, font=self.font, fill=0)
         
         # Hinweistext
         self.draw.text((10, 10), "Pause", font=self.font, fill=0)
